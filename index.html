@@ -66,8 +66,8 @@ const t = (en, kr) => (ko ? kr : en);
 document.documentElement.lang = t('en', 'ko');
 document.getElementById('title').textContent = t("Ruminem's VS Code extensions", 'Ruminem의 VS Code 익스텐션');
 document.getElementById('lead').textContent = t(
-  'Install opens the extension in VS Code; press Install there once more.',
-  '설치를 누르면 VS Code에 확장 페이지가 열림. 거기서 Install 을 한 번 더 누르면 됨.');
+  'Open in VS Code shows the extension page there; press Install on that page.',
+  'VS Code에서 열기를 누르면 VS Code에 확장 페이지가 열림. 거기서 Install 을 누르면 설치됨.');
 document.getElementById('all').textContent = t('Everything at once', '한꺼번에 설치');
 const copy = document.getElementById('copy');
 copy.textContent = t('Copy command', '명령 복사');
@@ -87,7 +87,7 @@ for (const [id, name, en, kr] of EXTENSIONS) {
   const install = document.createElement('a');
   install.className = 'btn';
   install.href = `vscode:extension/${id}`;
-  install.textContent = t('Install', '설치');
+  install.textContent = t('Open in VS Code', 'VS Code에서 열기');
   row.append(text, install);
   list.append(row);
 }
