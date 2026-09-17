@@ -19,7 +19,8 @@
   .ext { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin-bottom: 10px;
          display: flex; gap: 12px; align-items: center; }
   .ext div { flex: 1; min-width: 0; }
-  .ext b { display: block; }
+  .ext .name { display: block; font-weight: bold; color: inherit; text-decoration: none; }
+  .ext .name:hover { color: var(--accent); text-decoration: underline; }
   .ext span { color: var(--muted); font-size: 14px; }
   a.btn, button { background: var(--accent); color: #fff; border: 0; border-radius: 4px; padding: 6px 12px;
                   font: inherit; font-size: 14px; text-decoration: none; cursor: pointer; white-space: nowrap; }
@@ -41,6 +42,7 @@
 </main>
 <script>
 // Add a new extension here: [id, name, English, 한국어]
+// The title links to github.com/<publisher>/<name>, so the repository must share the extension's name.
 const EXTENSIONS = [
   ['Ruminem.cmake-link-explorer', 'CMake Link Explorer',
    'What a CMake target links, what links it, and what eats the binary size and build time.',
@@ -77,13 +79,15 @@ for (const [id, name, en, kr] of EXTENSIONS) {
   const row = document.createElement('section');
   row.className = 'ext';
   const text = document.createElement('div');
-  const b = document.createElement('b');
-  b.textContent = name;
+  const title = document.createElement('a');
+  title.className = 'name';
+  title.href = `https://github.com/${id.replace('.', '/')}`;
+  title.textContent = name;
   const desc = document.createElement('span');
   desc.textContent = t(en, kr);
   const market = document.createElement('small');
   market.innerHTML = `<br><a href="https://marketplace.visualstudio.com/items?itemName=${id}">Marketplace</a>`;
-  text.append(b, desc, market);
+  text.append(title, desc, market);
   const install = document.createElement('a');
   install.className = 'btn';
   install.href = `vscode:extension/${id}`;
