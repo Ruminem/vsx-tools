@@ -1,0 +1,95 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: MIT -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ruminem's VS Code extensions</title>
+<style>
+  :root { --bg: #fafafa; --card: #fff; --fg: #1a1a1a; --muted: #666; --line: #ddd; --accent: #0066b8; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #1e1e1e; --card: #252526; --fg: #e0e0e0; --muted: #9a9a9a; --line: #3c3c3c; --accent: #3794ff; }
+  }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 32px 16px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  p.lead { color: var(--muted); margin: 0 0 24px; }
+  .ext { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin-bottom: 10px;
+         display: flex; gap: 12px; align-items: center; }
+  .ext div { flex: 1; min-width: 0; }
+  .ext b { display: block; }
+  .ext span { color: var(--muted); font-size: 14px; }
+  a.btn, button { background: var(--accent); color: #fff; border: 0; border-radius: 4px; padding: 6px 12px;
+                  font: inherit; font-size: 14px; text-decoration: none; cursor: pointer; white-space: nowrap; }
+  .ext small a { color: var(--muted); font-size: 12px; }
+  h2 { font-size: 16px; margin: 28px 0 8px; }
+  pre { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow-x: auto;
+        white-space: pre-wrap; word-break: break-all; margin: 0 0 8px; }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="title"></h1>
+  <p class="lead" id="lead"></p>
+  <div id="list"></div>
+  <h2 id="all"></h2>
+  <pre id="cmd"></pre>
+  <button id="copy"></button>
+</main>
+<script>
+// Add a new extension here: [id, name, English, 한국어]
+const EXTENSIONS = [
+  ['Ruminem.cmake-link-explorer', 'CMake Link Explorer',
+   'What a CMake target links, what links it, and what eats the binary size and build time.',
+   'CMake 타겟이 무엇을 링크하는지, 누가 링크하는지, 바이너리 크기와 빌드 시간을 무엇이 잡아먹는지 보여줌.'],
+  ['Ruminem.hover-decode', 'Hover Decode',
+   'Hover over epoch timestamps, hex, base64 or your own dictionary terms to see what they mean.',
+   'epoch 타임스탬프, 16진수, base64, 내 사전 용어에 마우스를 올리면 뜻을 보여줌.'],
+  ['Ruminem.vscode-assist', 'Assist — Navigation Keys',
+   'Navigation shortcuts VS Code does not ship, bound to keys VS Code does not use.',
+   'VS Code에 없는 탐색 단축키를 VS Code가 안 쓰는 키에 묶음.'],
+  ['Ruminem.vscode-neon-glow', 'Neon Glow',
+   'Neon glow for syntax highlighting, derived from whatever colour theme is active.',
+   '지금 쓰는 색 테마에서 유도한 네온 글로우를 문법 강조에 입힘.'],
+];
+
+const ko = navigator.language.startsWith('ko');
+const t = (en, kr) => (ko ? kr : en);
+document.documentElement.lang = t('en', 'ko');
+document.getElementById('title').textContent = t("Ruminem's VS Code extensions", 'Ruminem의 VS Code 익스텐션');
+document.getElementById('lead').textContent = t(
+  'Install opens the extension in VS Code; press Install there once more.',
+  '설치를 누르면 VS Code에 확장 페이지가 열림. 거기서 Install 을 한 번 더 누르면 됨.');
+document.getElementById('all').textContent = t('Everything at once', '한꺼번에 설치');
+const copy = document.getElementById('copy');
+copy.textContent = t('Copy command', '명령 복사');
+
+const list = document.getElementById('list');
+for (const [id, name, en, kr] of EXTENSIONS) {
+  const row = document.createElement('section');
+  row.className = 'ext';
+  const text = document.createElement('div');
+  const b = document.createElement('b');
+  b.textContent = name;
+  const desc = document.createElement('span');
+  desc.textContent = t(en, kr);
+  const market = document.createElement('small');
+  market.innerHTML = `<br><a href="https://marketplace.visualstudio.com/items?itemName=${id}">Marketplace</a>`;
+  text.append(b, desc, market);
+  const install = document.createElement('a');
+  install.className = 'btn';
+  install.href = `vscode:extension/${id}`;
+  install.textContent = t('Install', '설치');
+  row.append(text, install);
+  list.append(row);
+}
+
+const cmd = document.getElementById('cmd');
+cmd.textContent = 'code ' + EXTENSIONS.map(([id]) => `--install-extension ${id}`).join(' ');
+copy.onclick = async () => {
+  await navigator.clipboard.writeText(cmd.textContent);
+  copy.textContent = t('Copied', '복사됨');
+};
+</script>
+</body>
+</html>

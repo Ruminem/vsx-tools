@@ -1,3 +1,3 @@
-- 여기까지 됨: `vsx.js` 의 status / pack / install. status 는 실제 c:\dev 에서, pack 은 임시 폴더의 가짜 확장으로 확인
-- 다음 할 것: 실제 확장 하나로 `install` 을 돌려 설치까지 확인. 마켓플레이스 버전 열은 필요해지면 추가
+- 여기까지 됨: `vsx.js` 의 status / pack / install. 새 PC 용 설치 페이지 `index.html`(GitHub Pages, 마켓플레이스 링크)
+- 다음 할 것: 실제 확장 하나로 `install` 을 돌려 설치까지 확인. Pages 주소에서 설치 버튼이 VS Code 를 여는지 확인
 - 막힌 것: 없음
