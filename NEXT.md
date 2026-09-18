@@ -1,3 +1,3 @@
-- 여기까지 됨: `vsx.js` 의 status / pack / install. 새 PC 용 설치 페이지 `index.html`(GitHub Pages, 마켓플레이스 링크)
+- 여기까지 됨: `vsx.js` 의 status / pack / install. 설치 페이지 `index.html` — 확장을 세 갈래(네이티브 코드 / 코드 읽기 / 에디터 주변)로 묶고 카드 격자 배치
 - 다음 할 것: 실제 확장 하나로 `install` 을 돌려 설치까지 확인. Pages 주소에서 설치 버튼이 VS Code 를 여는지 확인
 - 막힌 것: 없음
