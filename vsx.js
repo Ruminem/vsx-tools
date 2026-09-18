@@ -7,6 +7,7 @@
  *   node vsx.js status                  version, installed version, git state per extension
  *   node vsx.js pack    <folder...|--all>   build .vsix and collect it in dist/
  *   node vsx.js install <folder...|--all>   pack, then install into VS Code
+ *   node vsx.js docs                    CLAUDE.md coverage and staleness, every repo here
  *
  * Each extension keeps its own build: `npm run package` when it has one, plain vsce otherwise.
  */
@@ -64,8 +65,12 @@ function status() {
       tagged: isGit ? (sh(`git tag --list v${e.version}`, e.dir) ? 'yes' : 'no') : '-',
     };
   });
-  if (!rows.length) return console.log(`${ROOT} 아래에서 확장을 찾지 못했습니다.`);
+  table(rows, '확장을 찾지 못했습니다.');
+}
 
+/** Print rows as an aligned table, using the first row's keys as the header. */
+function table(rows, empty) {
+  if (!rows.length) return console.log(`${ROOT} 아래에서 ${empty}`);
   const cols = Object.keys(rows[0]);
   const width = cols.map((c) => Math.max(c.length, ...rows.map((r) => r[c].length)));
   const line = (r) => cols.map((c, i) => r[c].padEnd(width[i])).join('  ');
@@ -96,11 +101,109 @@ function pack(e) {
   return out;
 }
 
+// --- CLAUDE.md ------------------------------------------------------------
+// A map goes stale quietly: files move, the map keeps pointing at where they were. Nothing can
+// tell whether the prose is still true, so this only looks for evidence that it is not.
+
+const MAP = 'CLAUDE.md';
+const NEEDS_MAP = 50 * 1024;  // source past this is worth a map (~1,500 lines); below it, reading beats a map
+const OLD_COMMITS = 30;       // commits piled on top of the map's own commit before it is worth a look
+const SOURCE = /\.(js|mjs|cjs|ts|tsx|jsx|py|dart|cs|cpp|cc|hpp?|ps1|go|rs|java|kt|rb|php|swift|lua|sh)$/i;
+
+/** Every git repo under the dev folder, extension or not. */
+function findProjects() {
+  return fs.readdirSync(ROOT, { withFileTypes: true })
+    .filter((d) => d.isDirectory() && fs.existsSync(path.join(ROOT, d.name, '.git')))
+    .map((d) => ({ folder: d.name, dir: path.join(ROOT, d.name) }));
+}
+
+/**
+ * Paths the map names, as written. The bar is high on purpose: a checker that cries wolf gets
+ * ignored, which is worse than no checker. So only a backticked token with a directory in it
+ * counts — `win-cursor/build.py`, not `build.py`. A bare name cannot be told apart from the
+ * dotted things docs are full of (`mapFile.matchTargets`, `assist.roundTrip`, `api.github.com`,
+ * `0.13`), and a bare filename is often one the doc discusses without owning (`colors.xml` inside
+ * an apk, `compile_commands.json` the build writes). Placeholders, globs, URLs and paths that
+ * leave the repo are nothing this can check.
+ */
+function citedPaths(text) {
+  const out = new Set();
+  for (const [, tok] of text.matchAll(/`([^`\n]+)`/g)) {
+    // Word chars, dots, hyphens and slashes only, with at least one slash. Everything else a doc
+    // puts in backticks fails this: globs, `<placeholders>`, `$shell`, urls (the colon), windows
+    // paths, `~/home`, and dotted names with no slash at all.
+    if (!/^[\w.-]+(\/[\w.-]*)+$/.test(tok) || tok.startsWith('../')) continue;
+    out.add(tok.replace(/^\.\//, ''));
+  }
+  return [...out];
+}
+
+/** Of those, the ones nothing answers to. */
+function deadPaths(dir, tracked, cited) {
+  return cited.filter((p) => {
+    if (fs.existsSync(path.join(dir, p))) return false;  // covers files git ignores but that are really there
+    return p.endsWith('/') ? !tracked.some((t) => t.startsWith(p)) : !tracked.includes(p);
+  });
+}
+
+function docs() {
+  const rows = [], broken = [];
+  for (const { folder, dir } of findProjects()) {
+    const tracked = (sh('git ls-files', dir) || '').split(/\r?\n/).filter(Boolean);
+    // Size from stat, not from reading: only the order of magnitude matters here.
+    const bytes = tracked.filter((f) => SOURCE.test(f))
+      .reduce((n, f) => { try { return n + fs.statSync(path.join(dir, f)).size; } catch { return n; } }, 0);
+
+    const has = fs.existsSync(path.join(dir, MAP));
+    let dead = [], since = '-';
+    if (has) {
+      dead = deadPaths(dir, tracked, citedPaths(fs.readFileSync(path.join(dir, MAP), 'utf8')));
+      if (dead.length) broken.push([folder, dead]);
+      const at = sh(`git log -1 --format=%H -- ${MAP}`, dir);
+      since = at ? (sh(`git rev-list --count ${at}..HEAD`, dir) ?? '-') : 'uncommitted';
+    }
+    rows.push({
+      project: folder,
+      source: `${Math.round(bytes / 1024)}KB`,
+      'CLAUDE.md': has ? 'yes' : (bytes >= NEEDS_MAP ? 'MISSING' : '-'),
+      dead: has ? String(dead.length) : '-',
+      'commits since': since,
+    });
+  }
+  table(rows, 'git 저장소를 찾지 못했습니다.');
+  for (const [folder, dead] of broken) {
+    console.log(`\n[${folder}] ${MAP} 가 가리키는데 없는 것:`);
+    for (const d of dead) console.log(`  ${d}`);
+  }
+  const look = rows.filter((r) => r['CLAUDE.md'] === 'MISSING' || Number(r.dead) > 0 || Number(r['commits since']) > OLD_COMMITS);
+  console.log(look.length ? `\n볼 것 ${look.length}개: ${look.map((r) => r.project).join(', ')}` : '\n볼 것 없음.');
+}
+
+/** The path matching above is the only part with corners; this is what fails if one gets filed off. */
+function selftest() {
+  const assert = require('assert');
+  const cited = citedPaths([
+    '`a/build.py` `./b/NEXT.md` `win-cursor/art/`',                       // 경로로 볼 것
+    '`build.py` `mapFile.matchTargets` `assist.roundTrip.explain` `0.13`', // 이름만 있는 것 — 안 봄
+    '`art/<theme>/x.txt` `*.vsix` `lib{}.a` `$HOME/x.py` `a b/c.py`',      // 자리표시자·글롭·셸
+    '`https://x.dev/y` `cursor-playground://apply/x` `~/.claude/CLAUDE.md` `C:/tmp/x.py` `../assets/`',
+  ].join(' '));
+  assert.deepStrictEqual(cited, ['a/build.py', 'b/NEXT.md', 'win-cursor/art/'], `골라낸 것: ${cited}`);
+
+  const tracked = ['win-cursor/build.py', 'win-cursor/art/amber/arrow.txt', 'README.md'];
+  const dead = deadPaths(path.join(__dirname, 'no-such-dir'), tracked,
+    ['win-cursor/build.py', 'win-cursor/art/', 'win-cursor/gone.py', 'docs/']);
+  assert.deepStrictEqual(dead, ['win-cursor/gone.py', 'docs/'], `죽은 것: ${dead}`);
+  console.log('selftest 통과');
+}
+
+
 function main() {
   const [cmd, ...args] = process.argv.slice(2);
   if (cmd === 'status' || !cmd) return status();
+  if (cmd === 'docs') return args.includes('--selftest') ? selftest() : docs();
   if (cmd !== 'pack' && cmd !== 'install') {
-    console.error('사용법: node vsx.js status | pack <folder...|--all> | install <folder...|--all>');
+    console.error('사용법: node vsx.js status | docs | pack <folder...|--all> | install <folder...|--all>');
     process.exit(2);
   }
 
