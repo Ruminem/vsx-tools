@@ -26,6 +26,7 @@
                   font: inherit; font-size: 14px; text-decoration: none; cursor: pointer; white-space: nowrap; }
   .ext small a { color: var(--muted); font-size: 12px; }
   h2 { font-size: 16px; margin: 28px 0 8px; }
+  #commands button { margin-bottom: 8px; }
   pre { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow-x: auto;
         white-space: pre-wrap; word-break: break-all; margin: 0 0 8px; }
 </style>
@@ -36,9 +37,7 @@
   <h1 id="title"></h1>
   <p class="lead" id="lead"></p>
   <div id="list"></div>
-  <h2 id="all"></h2>
-  <pre id="cmd"></pre>
-  <button id="copy"></button>
+  <div id="commands"></div>
 </main>
 <script>
 // Add a new extension here: [id, name, English, 한국어]
@@ -70,9 +69,6 @@ document.getElementById('title').textContent = t("Ruminem's VS Code extensions",
 document.getElementById('lead').textContent = t(
   'Open in VS Code shows the extension page there; press Install on that page.',
   'VS Code에서 열기를 누르면 VS Code에 확장 페이지가 열림. 거기서 Install 을 누르면 설치됨.');
-document.getElementById('all').textContent = t('Everything at once', '한꺼번에 설치');
-const copy = document.getElementById('copy');
-copy.textContent = t('Copy command', '명령 복사');
 
 const list = document.getElementById('list');
 for (const [id, name, en, kr] of EXTENSIONS) {
@@ -96,12 +92,25 @@ for (const [id, name, en, kr] of EXTENSIONS) {
   list.append(row);
 }
 
-const cmd = document.getElementById('cmd');
-cmd.textContent = 'code ' + EXTENSIONS.map(([id]) => `--install-extension ${id}`).join(' ');
-copy.onclick = async () => {
-  await navigator.clipboard.writeText(cmd.textContent);
-  copy.textContent = t('Copied', '복사됨');
-};
+// --force is global and makes the CLI install the latest version over what is already there.
+const line = (force) => 'code ' + EXTENSIONS.map(([id]) => `--install-extension ${id}`).join(' ') + (force ? ' --force' : '');
+const commands = document.getElementById('commands');
+for (const [heading, cmd] of [
+  [t('Install everything at once', '한꺼번에 설치'), line(false)],
+  [t('Update everything to the latest version', '한꺼번에 최신 버전으로 업데이트'), line(true)],
+]) {
+  const h = document.createElement('h2');
+  h.textContent = heading;
+  const pre = document.createElement('pre');
+  pre.textContent = cmd;
+  const copy = document.createElement('button');
+  copy.textContent = t('Copy command', '명령 복사');
+  copy.onclick = async () => {
+    await navigator.clipboard.writeText(cmd);
+    copy.textContent = t('Copied', '복사됨');
+  };
+  commands.append(h, pre, copy);
+}
 </script>
 </body>
 </html>
