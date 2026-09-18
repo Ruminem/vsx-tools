@@ -11,6 +11,7 @@ node vsx.js status                       # version, installed version, git state
 node vsx.js pack    hover-decode         # build .vsix into dist/
 node vsx.js install --all                # build everything and install into VS Code
 node vsx.js docs                         # CLAUDE.md coverage and staleness, every repo here
+node vsx.js docs --record                # same scan, but files changed findings and prints nothing
 ```
 
 An extension is any sibling folder whose `package.json` has `engines.vscode`.
@@ -32,6 +33,18 @@ because a bare name cannot be told apart from the dotted things docs are full of
 legitimately names paths it does not own — a release URL, a build temp folder, another repo — so
 read the list, do not gate on it. `MISSING` in the CLAUDE.md column only appears past 50KB of
 source; below that, reading the code beats writing a map for it.
+
+### Collecting the false alarms
+
+`--record` runs the same scan, appends the findings to `docs-log.jsonl` and prints nothing. It is
+meant for a `SessionEnd` hook, so the log fills while you work instead of when you remember to look.
+
+It only writes when the findings differ from the last entry. The scan is deterministic, so an
+unchanged result is not news, and logging it every session would bury the few lines that are.
+
+The point is to build the evidence for tightening the rules: after a few weeks the log shows which
+complaints keep coming back and were never worth fixing. Until that list exists the scan cannot be
+trusted to run unattended, which is why nothing here warns, blocks or exits non-zero.
 
 ## Install page
 
@@ -60,6 +73,7 @@ node vsx.js status                       # 버전, 설치된 버전, git 상태
 node vsx.js pack    hover-decode         # .vsix 를 빌드해 dist/ 에 모음
 node vsx.js install --all                # 전부 빌드해서 VS Code 에 설치
 node vsx.js docs                         # 여기 있는 저장소 전부의 CLAUDE.md 상태
+node vsx.js docs --record                # 같은 검사. 달라진 것만 적어 두고 아무것도 찍지 않음
 ```
 
 형제 폴더 중 `package.json` 에 `engines.vscode` 가 있는 것을 확장으로 봄.
@@ -79,6 +93,18 @@ node vsx.js docs                         # 여기 있는 저장소 전부의 CLA
 널린 점 찍힌 것들과 구분이 안 되기 때문임. 그래도 문서는 제 것이 아닌 경로도 정당하게 언급함 —
 릴리스 주소, 빌드 임시 폴더, 다른 저장소. 그러니 목록은 읽어 보는 용도지 막는 용도가 아님.
 `CLAUDE.md` 칸의 `MISSING` 은 소스가 50KB 를 넘을 때만 뜸. 그 아래면 지도를 쓰느니 코드를 읽는 게 나음.
+
+#### 오탐 모으기
+
+`--record` 는 같은 검사를 돌리되 결과를 `docs-log.jsonl` 에 적고 아무것도 찍지 않음. `SessionEnd`
+훅에 걸어 두라고 만든 것임. 생각나서 돌려 보는 때가 아니라 일하는 동안 로그가 쌓임.
+
+직전에 적힌 것과 달라졌을 때만 씀. 검사가 결정적이라 안 바뀐 결과는 소식이 아니고, 매 세션 적으면
+정작 소식인 몇 줄이 묻힘.
+
+목적은 규칙을 조일 근거를 모으는 것임. 몇 주 지나면 어떤 지적이 계속 나오면서 한 번도 고칠 값어치가
+없었는지 로그에 보임. 그 목록이 생기기 전까지는 이 검사를 사람 없이 돌게 둘 수 없음. 여기 있는 어떤
+것도 경고하거나 막거나 0 아닌 값으로 끝나지 않는 이유가 그것임.
 
 ### 설치 페이지
 

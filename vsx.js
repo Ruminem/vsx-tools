@@ -7,7 +7,8 @@
  *   node vsx.js status                  version, installed version, git state per extension
  *   node vsx.js pack    <folder...|--all>   build .vsix and collect it in dist/
  *   node vsx.js install <folder...|--all>   pack, then install into VS Code
- *   node vsx.js docs                    CLAUDE.md coverage and staleness, every repo here
+ *   node vsx.js docs [--record]         CLAUDE.md coverage and staleness, every repo here
+ *                                       --record files changed findings in docs-log.jsonl, silently
  *
  * Each extension keeps its own build: `npm run package` when it has one, plain vsce otherwise.
  */
@@ -146,7 +147,8 @@ function deadPaths(dir, tracked, cited) {
   });
 }
 
-function docs() {
+/** The scan itself. docs prints it, --record files it away. */
+function scanDocs() {
   const rows = [], broken = [];
   for (const { folder, dir } of findProjects()) {
     const tracked = (sh('git ls-files', dir) || '').split(/\r?\n/).filter(Boolean);
@@ -170,6 +172,11 @@ function docs() {
       'commits since': since,
     });
   }
+  return { rows, broken };
+}
+
+function docs() {
+  const { rows, broken } = scanDocs();
   table(rows, 'git 저장소를 찾지 못했습니다.');
   for (const [folder, dead] of broken) {
     console.log(`\n[${folder}] ${MAP} 가 가리키는데 없는 것:`);
@@ -177,6 +184,29 @@ function docs() {
   }
   const look = rows.filter((r) => r['CLAUDE.md'] === 'MISSING' || Number(r.dead) > 0 || Number(r['commits since']) > OLD_COMMITS);
   console.log(look.length ? `\n볼 것 ${look.length}개: ${look.map((r) => r.project).join(', ')}` : '\n볼 것 없음.');
+}
+
+const LOG = path.join(__dirname, 'docs-log.jsonl');
+
+/** Two scans worth comparing: the same complaints about the same projects. */
+const sameFindings = (a, b) => !!a && JSON.stringify([a.dead, a.missing]) === JSON.stringify([b.dead, b.missing]);
+
+/**
+ * File the findings away and say nothing. Which of them are false alarms is a judgement no scan
+ * can make, so this only keeps the raw material: what was reported, and when it started looking
+ * that way. The scan is deterministic, so an unchanged result is not news — logging it every
+ * session would bury the few lines that are.
+ */
+function record() {
+  const { rows, broken } = scanDocs();
+  const now = {
+    dead: Object.fromEntries(broken),
+    missing: rows.filter((r) => r['CLAUDE.md'] === 'MISSING').map((r) => r.project),
+  };
+  const lines = fs.existsSync(LOG) ? fs.readFileSync(LOG, 'utf8').split('\n').filter(Boolean) : [];
+  const last = lines.length ? JSON.parse(lines[lines.length - 1]) : null;
+  if (sameFindings(last, now)) return;
+  fs.appendFileSync(LOG, `${JSON.stringify({ at: new Date().toISOString(), ...now })}\n`);
 }
 
 /** The path matching above is the only part with corners; this is what fails if one gets filed off. */
@@ -194,6 +224,11 @@ function selftest() {
   const dead = deadPaths(path.join(__dirname, 'no-such-dir'), tracked,
     ['win-cursor/build.py', 'win-cursor/art/', 'win-cursor/gone.py', 'docs/']);
   assert.deepStrictEqual(dead, ['win-cursor/gone.py', 'docs/'], `죽은 것: ${dead}`);
+
+  const one = { dead: { a: ['x/y.py'] }, missing: [] };
+  assert.ok(sameFindings(one, { dead: { a: ['x/y.py'] }, missing: [] }), '같은 결과를 또 적으면 안 된다');
+  assert.ok(!sameFindings(one, { dead: { a: ['x/z.py'] }, missing: [] }), '달라진 결과는 적어야 한다');
+  assert.ok(!sameFindings(null, one), '첫 줄은 적어야 한다');
   console.log('selftest 통과');
 }
 
@@ -201,7 +236,10 @@ function selftest() {
 function main() {
   const [cmd, ...args] = process.argv.slice(2);
   if (cmd === 'status' || !cmd) return status();
-  if (cmd === 'docs') return args.includes('--selftest') ? selftest() : docs();
+  if (cmd === 'docs') {
+    if (args.includes('--selftest')) return selftest();
+    return args.includes('--record') ? record() : docs();
+  }
   if (cmd !== 'pack' && cmd !== 'install') {
     console.error('사용법: node vsx.js status | docs | pack <folder...|--all> | install <folder...|--all>');
     process.exit(2);
