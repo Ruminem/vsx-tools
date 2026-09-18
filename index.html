@@ -10,26 +10,35 @@
   @media (prefers-color-scheme: dark) {
     :root { --bg: #1e1e1e; --card: #252526; --fg: #e0e0e0; --muted: #9a9a9a; --line: #3c3c3c; --accent: #3794ff; }
   }
-  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; }
-  main { max-width: 720px; margin: 0 auto; padding: 32px 16px; }
-  h1 { font-size: 22px; margin: 0 0 4px; }
-  nav { font-size: 14px; margin-bottom: 12px; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.55 system-ui, sans-serif; }
+  main { max-width: 880px; margin: 0 auto; padding: 40px 20px 56px; }
+  h1 { font-size: 24px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  nav { font-size: 13px; margin-bottom: 14px; }
   nav a { color: var(--accent); }
-  p.lead { color: var(--muted); margin: 0 0 24px; }
-  .ext { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin-bottom: 10px;
-         display: flex; gap: 12px; align-items: center; }
-  .ext img { width: 42px; height: 42px; border-radius: 6px; flex: none; }
-  .ext div { flex: 1; min-width: 0; }
-  .ext .name { display: block; font-weight: bold; color: inherit; text-decoration: none; }
+  p.lead { color: var(--muted); margin: 0; max-width: 62ch; }
+  h2 { font-size: 14px; font-weight: 600; color: var(--muted); margin: 34px 0 12px;
+       padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+  .ext { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px;
+         display: flex; flex-direction: column; gap: 8px; }
+  .ext .head { display: flex; align-items: center; gap: 10px; }
+  .ext img { width: 36px; height: 36px; border-radius: 8px; flex: none; }
+  .ext .name { font-weight: 600; color: inherit; text-decoration: none; }
   .ext .name:hover { color: var(--accent); text-decoration: underline; }
-  .ext span { color: var(--muted); font-size: 14px; }
-  a.btn, button { background: var(--accent); color: #fff; border: 0; border-radius: 4px; padding: 6px 12px;
-                  font: inherit; font-size: 14px; text-decoration: none; cursor: pointer; white-space: nowrap; }
-  .ext small a { color: var(--muted); font-size: 12px; }
-  h2 { font-size: 16px; margin: 28px 0 8px; }
-  #commands button { margin-bottom: 8px; }
-  pre { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow-x: auto;
-        white-space: pre-wrap; word-break: break-all; margin: 0 0 8px; }
+  .ext p { margin: 0; flex: 1; color: var(--muted); font-size: 14px; }
+  .ext .actions { display: flex; align-items: center; gap: 14px; }
+  .ext .actions a.market { color: var(--muted); font-size: 13px; }
+  a.btn { background: var(--accent); color: #fff; border-radius: 4px; padding: 6px 12px;
+          font-size: 14px; text-decoration: none; white-space: nowrap; }
+  .cmd-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+              margin: 34px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  .cmd-head h2 { margin: 0; padding: 0; border: 0; }
+  button { background: transparent; color: var(--fg); border: 1px solid var(--line); border-radius: 4px;
+           padding: 5px 10px; font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap; }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  pre { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px;
+        white-space: pre-wrap; word-break: break-all; overflow-x: auto; margin: 0; font-size: 13px; }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 </style>
 </head>
 <body>
@@ -41,27 +50,33 @@
   <div id="commands"></div>
 </main>
 <script>
-// Add a new extension here: [id, name, English, 한국어]
+// Add a new extension to the group it belongs to: [id, name, English, 한국어]
 // The title links to github.com/<publisher>/<name>, so the repository must share the extension's name.
-const EXTENSIONS = [
-  ['Ruminem.cmake-link-explorer', 'CMake Link Explorer',
-   'What a CMake target links, what links it, and what eats the binary size and build time.',
-   'CMake 타겟이 무엇을 링크하는지, 누가 링크하는지, 바이너리 크기와 빌드 시간을 무엇이 잡아먹는지 보여줌.'],
-  ['Ruminem.hover-decode', 'Hover Decode',
-   'Hover over epoch timestamps, hex, base64 or your own dictionary terms to see what they mean.',
-   'epoch 타임스탬프, 16진수, base64, 내 사전 용어에 마우스를 올리면 뜻을 보여줌.'],
-  ['Ruminem.native-toolbelt', 'Native Toolbelt',
-   'Which DLLs an executable needs, where Windows would find each one, and which ones it cannot find.',
-   '실행 파일이 어떤 DLL을 필요로 하는지, 윈도우가 그걸 어디서 찾을지, 아예 못 찾는 게 무엇인지 알려 줌.'],
-  ['Ruminem.terminal-toast', 'Terminal Toast',
-   'A Windows toast when a long terminal command or build finishes while VS Code is in the background.',
-   '한참 걸린 터미널 명령이나 빌드가 끝났는데 VS Code 창이 뒤에 있으면 윈도우 토스트로 알려 줌.'],
-  ['Ruminem.vscode-assist', 'Assist — Navigation Keys',
-   'Navigation shortcuts VS Code does not ship, bound to keys VS Code does not use.',
-   'VS Code에 없는 탐색 단축키를 VS Code가 안 쓰는 키에 묶음.'],
-  ['Ruminem.vscode-neon-glow', 'Neon Glow',
-   'Neon glow for syntax highlighting, derived from whatever colour theme is active.',
-   '지금 쓰는 색 테마에서 유도한 네온 글로우를 문법 강조에 입힘.'],
+const GROUPS = [
+  ['Native code', '네이티브 코드', [
+    ['Ruminem.cmake-link-explorer', 'CMake Link Explorer',
+     'What a CMake target links, what links it, and what eats the binary size and build time.',
+     'CMake 타겟이 무엇을 링크하는지, 누가 링크하는지, 바이너리 크기와 빌드 시간을 무엇이 잡아먹는지 보여줌.'],
+    ['Ruminem.native-toolbelt', 'Native Toolbelt',
+     'Which DLLs an executable needs, where Windows would find each one, and which ones it cannot find.',
+     '실행 파일이 어떤 DLL을 필요로 하는지, 윈도우가 그걸 어디서 찾을지, 아예 못 찾는 게 무엇인지 알려 줌.'],
+  ]],
+  ['Reading code', '코드 읽기', [
+    ['Ruminem.hover-decode', 'Hover Decode',
+     'Hover over epoch timestamps, hex, base64 or your own dictionary terms to see what they mean.',
+     'epoch 타임스탬프, 16진수, base64, 내 사전 용어에 마우스를 올리면 뜻을 보여줌.'],
+    ['Ruminem.vscode-assist', 'Assist — Navigation Keys',
+     'Navigation shortcuts VS Code does not ship, bound to keys VS Code does not use.',
+     'VS Code에 없는 탐색 단축키를 VS Code가 안 쓰는 키에 묶음.'],
+  ]],
+  ['Around the editor', '에디터 주변', [
+    ['Ruminem.terminal-toast', 'Terminal Toast',
+     'A Windows toast when a long terminal command or build finishes while VS Code is in the background.',
+     '한참 걸린 터미널 명령이나 빌드가 끝났는데 VS Code 창이 뒤에 있으면 윈도우 토스트로 알려 줌.'],
+    ['Ruminem.vscode-neon-glow', 'Neon Glow',
+     'Neon glow for syntax highlighting, derived from whatever colour theme is active.',
+     '지금 쓰는 색 테마에서 유도한 네온 글로우를 문법 강조에 입힘.'],
+  ]],
 ];
 
 // ?lang=en or ?lang=ko picks the language; without it, the browser's language decides.
@@ -78,50 +93,67 @@ document.getElementById('lead').textContent = t(
   'VS Code에서 열기를 누르면 VS Code에 확장 페이지가 열림. 거기서 Install 을 누르면 설치됨.');
 
 const list = document.getElementById('list');
-for (const [id, name, en, kr] of EXTENSIONS) {
-  const row = document.createElement('section');
-  row.className = 'ext';
-  const [publisher, slug] = id.split('.');
-  const icon = document.createElement('img');
-  icon.src = `https://${publisher}.gallery.vsassets.io/_apis/public/gallery/publisher/${publisher}/extension/${slug}/latest/assetbyname/Microsoft.VisualStudio.Services.Icons.Default`;
-  icon.alt = '';
-  icon.loading = 'lazy';
-  const text = document.createElement('div');
-  const title = document.createElement('a');
-  title.className = 'name';
-  title.href = `https://github.com/${publisher}/${slug}`;
-  title.textContent = name;
-  const desc = document.createElement('span');
-  desc.textContent = t(en, kr);
-  const market = document.createElement('small');
-  market.innerHTML = `<br><a href="https://marketplace.visualstudio.com/items?itemName=${id}">Marketplace</a>`;
-  text.append(title, desc, market);
-  const install = document.createElement('a');
-  install.className = 'btn';
-  install.href = `vscode:extension/${id}`;
-  install.textContent = t('Open in VS Code', 'VS Code에서 열기');
-  row.append(icon, text, install);
-  list.append(row);
+for (const [groupEn, groupKr, extensions] of GROUPS) {
+  const heading = document.createElement('h2');
+  heading.textContent = t(groupEn, groupKr);
+  const grid = document.createElement('div');
+  grid.className = 'grid';
+  for (const [id, name, en, kr] of extensions) {
+    const [publisher, slug] = id.split('.');
+    const card = document.createElement('section');
+    card.className = 'ext';
+    const head = document.createElement('div');
+    head.className = 'head';
+    const icon = document.createElement('img');
+    icon.src = `https://${publisher}.gallery.vsassets.io/_apis/public/gallery/publisher/${publisher}/extension/${slug}/latest/assetbyname/Microsoft.VisualStudio.Services.Icons.Default`;
+    icon.alt = '';
+    icon.loading = 'lazy';
+    const title = document.createElement('a');
+    title.className = 'name';
+    title.href = `https://github.com/${publisher}/${slug}`;
+    title.textContent = name;
+    head.append(icon, title);
+    const desc = document.createElement('p');
+    desc.textContent = t(en, kr);
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+    const install = document.createElement('a');
+    install.className = 'btn';
+    install.href = `vscode:extension/${id}`;
+    install.textContent = t('Open in VS Code', 'VS Code에서 열기');
+    const market = document.createElement('a');
+    market.className = 'market';
+    market.href = `https://marketplace.visualstudio.com/items?itemName=${id}`;
+    market.textContent = 'Marketplace';
+    actions.append(install, market);
+    card.append(head, desc, actions);
+    grid.append(card);
+  }
+  list.append(heading, grid);
 }
 
 // --force is global and makes the CLI install the latest version over what is already there.
-const line = (force) => 'code ' + EXTENSIONS.map(([id]) => `--install-extension ${id}`).join(' ') + (force ? ' --force' : '');
+const ids = GROUPS.flatMap(([, , extensions]) => extensions.map(([id]) => id));
+const line = (force) => 'code ' + ids.map((id) => `--install-extension ${id}`).join(' ') + (force ? ' --force' : '');
 const commands = document.getElementById('commands');
 for (const [heading, cmd] of [
   [t('Install everything at once', '한꺼번에 설치'), line(false)],
   [t('Update everything to the latest version', '한꺼번에 최신 버전으로 업데이트'), line(true)],
 ]) {
+  const head = document.createElement('div');
+  head.className = 'cmd-head';
   const h = document.createElement('h2');
   h.textContent = heading;
-  const pre = document.createElement('pre');
-  pre.textContent = cmd;
   const copy = document.createElement('button');
   copy.textContent = t('Copy command', '명령 복사');
   copy.onclick = async () => {
     await navigator.clipboard.writeText(cmd);
     copy.textContent = t('Copied', '복사됨');
   };
-  commands.append(h, pre, copy);
+  head.append(h, copy);
+  const pre = document.createElement('pre');
+  pre.textContent = cmd;
+  commands.append(head, pre);
 }
 </script>
 </body>
