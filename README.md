@@ -12,6 +12,7 @@ node vsx.js pack    hover-decode         # build .vsix into dist/
 node vsx.js install --all                # build everything and install into VS Code
 node vsx.js docs                         # CLAUDE.md coverage and staleness, every repo here
 node vsx.js docs --record                # same scan, but files changed findings and prints nothing
+node vsx.js docs --ripe                  # speaks only when that log has complaints worth triaging
 ```
 
 An extension is any sibling folder whose `package.json` has `engines.vscode`.
@@ -46,6 +47,12 @@ The point is to build the evidence for tightening the rules: after a few weeks t
 complaints keep coming back and were never worth fixing. Until that list exists the scan cannot be
 trusted to run unattended, which is why nothing here warns, blocks or exits non-zero.
 
+`--ripe` reads that log — and nothing else, so it is instant and belongs on a `SessionStart` hook.
+It stays silent until some complaint has survived three recordings spread over a fortnight, and
+only then prints the JSON that hands the session a note about it. A complaint recorded once and
+gone by the next was real rot that got fixed; one that neither gets fixed nor goes away is the
+shape of a false alarm, and the evidence needed to rule against it.
+
 ## Install page
 
 On a new machine, open https://ruminem.github.io/vsx-tools/?lang=en and press Open in VS Code next to
@@ -74,6 +81,7 @@ node vsx.js pack    hover-decode         # .vsix 를 빌드해 dist/ 에 모음
 node vsx.js install --all                # 전부 빌드해서 VS Code 에 설치
 node vsx.js docs                         # 여기 있는 저장소 전부의 CLAUDE.md 상태
 node vsx.js docs --record                # 같은 검사. 달라진 것만 적어 두고 아무것도 찍지 않음
+node vsx.js docs --ripe                  # 그 기록에 추릴 만한 것이 쌓였을 때만 입을 엶
 ```
 
 형제 폴더 중 `package.json` 에 `engines.vscode` 가 있는 것을 확장으로 봄.
@@ -105,6 +113,11 @@ node vsx.js docs --record                # 같은 검사. 달라진 것만 적�
 목적은 규칙을 조일 근거를 모으는 것임. 몇 주 지나면 어떤 지적이 계속 나오면서 한 번도 고칠 값어치가
 없었는지 로그에 보임. 그 목록이 생기기 전까지는 이 검사를 사람 없이 돌게 둘 수 없음. 여기 있는 어떤
 것도 경고하거나 막거나 0 아닌 값으로 끝나지 않는 이유가 그것임.
+
+`--ripe` 는 그 로그만 읽음. 다른 건 안 봐서 즉시 끝나므로 `SessionStart` 훅 자리임. 어떤 지적이
+기록 세 번을 2주에 걸쳐 살아남기 전까지는 아무 말도 안 하고, 그때만 세션에 알리는 JSON 을 찍음.
+한 번 기록되고 다음엔 사라진 지적은 진짜 썩음이라 누가 고친 것임. 고쳐지지도 사라지지도 않는 것이
+오탐의 모양이고, 규칙으로 쳐낼 근거임.
 
 ### 설치 페이지
 

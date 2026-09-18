@@ -9,6 +9,7 @@
  *   node vsx.js install <folder...|--all>   pack, then install into VS Code
  *   node vsx.js docs [--record]         CLAUDE.md coverage and staleness, every repo here
  *                                       --record files changed findings in docs-log.jsonl, silently
+ *                                       --ripe   tells the session when that log has complaints worth triaging
  *
  * Each extension keeps its own build: `npm run package` when it has one, plain vsce otherwise.
  */
@@ -209,6 +210,55 @@ function record() {
   fs.appendFileSync(LOG, `${JSON.stringify({ at: new Date().toISOString(), ...now })}\n`);
 }
 
+const RIPE_ENTRIES = 3;  // distinct recordings a complaint must survive before it counts as stubborn
+const RIPE_DAYS = 14;    // ...spread over at least this long, so a busy afternoon of edits is not mistaken for months
+
+/**
+ * Complaints that keep coming back. A finding recorded once and gone next time was real rot that
+ * someone fixed; one that survives recording after recording, for weeks, without anyone touching
+ * it is the shape of a false alarm — and a false alarm that has proved it repeats is exactly what
+ * a rule should be tightened against. Deciding that needs no judgement, only two counts.
+ */
+function stubborn(entries) {
+  const seen = new Map();
+  for (const e of entries) {
+    for (const [project, dead] of Object.entries(e.dead || {})) {
+      for (const d of dead) {
+        const key = `${project}: ${d}`;
+        if (!seen.has(key)) seen.set(key, []);
+        seen.get(key).push(Date.parse(e.at));
+      }
+    }
+  }
+  const days = (ts) => (Math.max(...ts) - Math.min(...ts)) / 86400000;
+  return [...seen].filter(([, ts]) => ts.length >= RIPE_ENTRIES && days(ts) >= RIPE_DAYS)
+    .map(([key, ts]) => ({ key, times: ts.length, days: Math.round(days(ts)) }));
+}
+
+/**
+ * Say something only once the log has earned it, and say it to the session rather than the
+ * terminal: reading a jsonl of a few dozen lines costs nothing, so this can run at SessionStart
+ * where --record would be too slow. Silence the rest of the time is the point — a notice that
+ * appears every session is one nobody reads by the third day.
+ */
+function ripeCheck() {
+  if (!fs.existsSync(LOG)) return;
+  const entries = fs.readFileSync(LOG, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  const old = stubborn(entries);
+  if (!old.length) return;
+  console.log(JSON.stringify({
+    hookSpecificOutput: {
+      hookEventName: 'SessionStart',
+      additionalContext: [
+        `CLAUDE.md 점검 기록(${LOG})에 오래 남은 지적이 ${old.length}건 있다. 고쳐지지도 사라지지도`,
+        '않았으니 오탐이거나, 지도가 정말 틀린 채 방치된 것이다. 사용자에게 한 줄로 알리고, 원하면',
+        `훑어보고 vsx.js 의 경로 규칙을 조이거나 해당 CLAUDE.md 를 고치겠다고 제안하라. 전체는 \`node ${path.join(__dirname, 'vsx.js')} docs\` 로 본다.`,
+        ...old.map((o) => `  ${o.key} — 기록 ${o.times}번, ${o.days}일째`),
+      ].join('\n'),
+    },
+  }));
+}
+
 /** The path matching above is the only part with corners; this is what fails if one gets filed off. */
 function selftest() {
   const assert = require('assert');
@@ -229,6 +279,15 @@ function selftest() {
   assert.ok(sameFindings(one, { dead: { a: ['x/y.py'] }, missing: [] }), '같은 결과를 또 적으면 안 된다');
   assert.ok(!sameFindings(one, { dead: { a: ['x/z.py'] }, missing: [] }), '달라진 결과는 적어야 한다');
   assert.ok(!sameFindings(null, one), '첫 줄은 적어야 한다');
+
+  const day = (n) => new Date(Date.UTC(2026, 0, n)).toISOString();
+  const log = [
+    { at: day(1), dead: { a: ['x/old.py', 'x/fixed.py'] } },   // 둘 다 처음
+    { at: day(9), dead: { a: ['x/old.py'] } },                 // fixed.py 는 고쳐져 사라짐
+    { at: day(20), dead: { a: ['x/old.py'], b: ['y/new.py'] } }, // new.py 는 이제 막 나옴
+  ];
+  assert.deepStrictEqual(stubborn(log), [{ key: 'a: x/old.py', times: 3, days: 19 }], JSON.stringify(stubborn(log)));
+  assert.deepStrictEqual(stubborn(log.slice(0, 2)), [], '기록 2번뿐이면 아직 이르다');
   console.log('selftest 통과');
 }
 
@@ -238,7 +297,8 @@ function main() {
   if (cmd === 'status' || !cmd) return status();
   if (cmd === 'docs') {
     if (args.includes('--selftest')) return selftest();
-    return args.includes('--record') ? record() : docs();
+    if (args.includes('--record')) return record();
+    return args.includes('--ripe') ? ripeCheck() : docs();
   }
   if (cmd !== 'pack' && cmd !== 'install') {
     console.error('사용법: node vsx.js status | docs | pack <folder...|--all> | install <folder...|--all>');
