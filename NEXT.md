@@ -1,3 +1,3 @@
 - 여기까지 됨: `vsx.js` 의 status / pack / install / docs. `docs` 는 dev 폴더 아래 git 저장소를 전부 돌며 CLAUDE.md 가 있는지, 그 지도가 가리키는 경로가 아직 있는지, 지도가 바뀐 뒤 커밋이 얼마나 쌓였는지 봄. `docs --record` 는 같은 검사를 조용히 돌려 달라진 결과만 `docs-log.jsonl` 에 적음(SessionEnd 훅, 1.4초). `docs --ripe` 는 그 로그만 읽어 기록 3번을 2주에 걸쳐 살아남은 지적이 있을 때만 세션에 알림(SessionStart 훅, 0.09초). 경로 판정·중복 판정·무르익음 판정은 `node vsx.js docs --selftest` 가 지킴
-- 다음 할 것: `--ripe` 가 실제로 입을 열 때까지 기다리기(가장 이른 시점이 2주 뒤). 그때 지적을 훑어 오탐이면 경로 규칙을 조이고, 진짜면 그 CLAUDE.md 를 고침. 실제 확장 하나로 `install` 을 돌려 설치까지 확인
+- 다음 할 것: `--ripe` 첫 지적 훑기. 실제로 입을 열 때까지 기다림(가장 이른 시점이 2주 뒤). 그때 지적을 훑어 오탐이면 경로 규칙을 조이고, 진짜면 그 CLAUDE.md 를 고침. 실제 확장 하나로 `install` 을 돌려 설치까지 확인
 - 막힌 것: 없음. 훅이 LLM 을 부를 수 있는 이벤트는 도구 이벤트(PreToolUse 등)뿐이라 SessionEnd/SessionStart 에서는 판단을 모델에 맡길 수 없음. 그래서 무르익음을 산수로(기록 횟수 × 기간) 재고, 결과만 SessionStart 의 additionalContext 로 넘겨 모델이 읽게 했음
