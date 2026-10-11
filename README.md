@@ -30,9 +30,14 @@ has, whether it has a map, how many paths that map names but that nothing answer
 commits have landed since the map itself last changed.
 
 It only flags a backticked token with a directory in it (`win-cursor/build.py`, not `build.py`),
-because a bare name cannot be told apart from the dotted things docs are full of. Even so, a doc
-legitimately names paths it does not own — a release URL, a build temp folder, another repo — so
-read the list, do not gate on it. `MISSING` in the CLAUDE.md column only appears past 50KB of
+because a bare name cannot be told apart from the dotted things docs are full of. It also lets
+through the kinds the first month of the log showed to be false alarms (2026-10-11: 32 of 32):
+a path git ignores is a build output nobody built here; a path that sits under some subfolder is a
+map written from inside a subproject (`gen/sea.py` for `win-cursor/gen/sea.py`); and a path whose
+first part names no folder the repo has, or ever had at its top, is about somewhere else — a
+GitHub slug, the user's own project, the inside of an archive. The price is that a subfolder
+deleted whole takes the relative paths under it out of view; a renamed top-level folder is still
+caught. Even so, read the list, do not gate on it. `MISSING` in the CLAUDE.md column only appears past 50KB of
 source; below that, reading the code beats writing a map for it.
 
 ### Collecting the false alarms
@@ -51,7 +56,8 @@ trusted to run unattended, which is why nothing here warns, blocks or exits non-
 It stays silent until some complaint has survived three recordings spread over a fortnight, and
 only then prints the JSON that hands the session a note about it. A complaint recorded once and
 gone by the next was real rot that got fixed; one that neither gets fixed nor goes away is the
-shape of a false alarm, and the evidence needed to rule against it.
+shape of a false alarm, and the evidence needed to rule against it. Only complaints the latest
+recording still reports count, so one that gets fixed or ruled out stops being mentioned.
 
 ## Install page
 
@@ -98,8 +104,13 @@ node vsx.js docs --ripe                  # 그 기록에 추릴 만한 것이 �
 쌓인 커밋 수가 나옴.
 
 백틱 안에 있고 폴더가 붙은 것만 봄(`build.py` 말고 `win-cursor/build.py`). 이름만 있으면 문서에
-널린 점 찍힌 것들과 구분이 안 되기 때문임. 그래도 문서는 제 것이 아닌 경로도 정당하게 언급함 —
-릴리스 주소, 빌드 임시 폴더, 다른 저장소. 그러니 목록은 읽어 보는 용도지 막는 용도가 아님.
+널린 점 찍힌 것들과 구분이 안 되기 때문임. 로그 첫 한 달이 오탐으로 보여 준 갈래도 넘김
+(2026-10-11: 32건 중 32건). git 이 무시하는 경로는 여기서 안 빌드했을 뿐인 생성물이고, 어느 하위
+폴더 아래에 있는 경로는 하위 프로젝트 안에서 쓴 지도임(`win-cursor/gen/sea.py` 를 `gen/sea.py` 로).
+첫 칸이 저장소에 지금 있는 폴더도, 예전에 최상위에 있던 폴더도 아니면 다른 곳 얘기임 — GitHub
+저장소 이름, 사용자 프로젝트, 압축 파일 안. 대가로 하위 폴더가 통째로 지워지면 그 아래를 상대
+경로로 쓴 지적은 안 보임. 최상위 폴더 이름이 바뀐 것은 여전히 잡음. 그래도 목록은 읽어 보는
+용도지 막는 용도가 아님.
 `CLAUDE.md` 칸의 `MISSING` 은 소스가 50KB 를 넘을 때만 뜸. 그 아래면 지도를 쓰느니 코드를 읽는 게 나음.
 
 #### 오탐 모으기
@@ -117,7 +128,8 @@ node vsx.js docs --ripe                  # 그 기록에 추릴 만한 것이 �
 `--ripe` 는 그 로그만 읽음. 다른 건 안 봐서 즉시 끝나므로 `SessionStart` 훅 자리임. 어떤 지적이
 기록 세 번을 2주에 걸쳐 살아남기 전까지는 아무 말도 안 하고, 그때만 세션에 알리는 JSON 을 찍음.
 한 번 기록되고 다음엔 사라진 지적은 진짜 썩음이라 누가 고친 것임. 고쳐지지도 사라지지도 않는 것이
-오탐의 모양이고, 규칙으로 쳐낼 근거임.
+오탐의 모양이고, 규칙으로 쳐낼 근거임. 마지막 기록에 아직 있는 지적만 세므로, 고치거나 규칙으로
+쳐낸 지적은 그 뒤로 안 나옴.
 
 ### 설치 페이지
 

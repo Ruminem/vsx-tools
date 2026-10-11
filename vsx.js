@@ -23,7 +23,7 @@ const DIST = path.join(__dirname, 'dist');
 /** Run a command; null on failure instead of throwing, since most checks are optional. */
 const sh = (cmd, cwd) => {
   try {
-    return execSync(cmd, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    return execSync(cmd, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 << 20 }).trim();
   } catch {
     return null;
   }
@@ -140,13 +140,33 @@ function citedPaths(text) {
   return [...out];
 }
 
-/** Of those, the ones nothing answers to. */
-function deadPaths(dir, tracked, cited) {
+/**
+ * Of those, the ones nothing answers to. Every rule below is a false alarm that survived weeks of
+ * recordings: an ignored path is a build output nobody built here; a map written from inside a
+ * subproject says `gen/sea.py` for `win-cursor/gen/sea.py`; and a path whose first part names no
+ * folder the repo has now — or ever had at its top — is about somewhere else (a GitHub slug, the
+ * user's own project, the inside of an archive). The price: a subfolder deleted whole takes the
+ * relative paths under it out of view. A renamed top-level folder is still caught.
+ */
+function deadPaths(dir, tracked, cited, { ignored = new Set(), pastTop = new Set() } = {}) {
+  const dirs = new Set(tracked.flatMap((t) => t.split('/').slice(0, -1)));
+  const under = tracked.map((t) => `/${t}`);
   return cited.filter((p) => {
-    if (fs.existsSync(path.join(dir, p))) return false;  // covers files git ignores but that are really there
-    return p.endsWith('/') ? !tracked.some((t) => t.startsWith(p)) : !tracked.includes(p);
+    if (fs.existsSync(path.join(dir, p)) || ignored.has(p)) return false;
+    const top = p.split('/')[0];
+    if (!dirs.has(top) && !pastTop.has(top)) return false;
+    const tail = `/${p}`;
+    return !under.some((t) => (p.endsWith('/') ? t.includes(tail) : t.endsWith(tail)));
   });
 }
+
+/** Of the cited paths, the ones git ignores. One call; none ignored makes it exit 1, hence null. */
+const ignoredOf = (dir, cited) => new Set(cited.length
+  ? (sh(`git check-ignore --no-index -- ${cited.join(' ')}`, dir) || '').split(/\r?\n/).filter(Boolean) : []);
+
+/** Folders that were ever at the top of the repo. Additions only, no rename detection: 0.3s on the biggest history here. */
+const pastTopOf = (dir) => new Set((sh('git log --all --format= --name-only --no-renames --diff-filter=A', dir) || '')
+  .split(/\r?\n/).filter((f) => f.includes('/')).map((f) => f.split('/')[0]));
 
 /** The scan itself. docs prints it, --record files it away. */
 function scanDocs() {
@@ -160,7 +180,8 @@ function scanDocs() {
     const has = fs.existsSync(path.join(dir, MAP));
     let dead = [], since = '-';
     if (has) {
-      dead = deadPaths(dir, tracked, citedPaths(fs.readFileSync(path.join(dir, MAP), 'utf8')));
+      const cited = citedPaths(fs.readFileSync(path.join(dir, MAP), 'utf8'));
+      dead = deadPaths(dir, tracked, cited, { ignored: ignoredOf(dir, cited), pastTop: pastTopOf(dir) });
       if (dead.length) broken.push([folder, dead]);
       const at = sh(`git log -1 --format=%H -- ${MAP}`, dir);
       since = at ? (sh(`git rev-list --count ${at}..HEAD`, dir) ?? '-') : 'uncommitted';
@@ -220,6 +241,10 @@ const RIPE_DAYS = 14;    // ...spread over at least this long, so a busy afterno
  * a rule should be tightened against. Deciding that needs no judgement, only two counts.
  */
 function stubborn(entries) {
+  // Only what the latest recording still reports: a complaint that held out for weeks and then got
+  // fixed is gone, not stubborn.
+  const last = entries.length ? entries[entries.length - 1].dead || {} : {};
+  const now = new Set(Object.entries(last).flatMap(([project, dead]) => dead.map((d) => `${project}: ${d}`)));
   const seen = new Map();
   for (const e of entries) {
     for (const [project, dead] of Object.entries(e.dead || {})) {
@@ -231,7 +256,7 @@ function stubborn(entries) {
     }
   }
   const days = (ts) => (Math.max(...ts) - Math.min(...ts)) / 86400000;
-  return [...seen].filter(([, ts]) => ts.length >= RIPE_ENTRIES && days(ts) >= RIPE_DAYS)
+  return [...seen].filter(([key, ts]) => now.has(key) && ts.length >= RIPE_ENTRIES && days(ts) >= RIPE_DAYS)
     .map(([key, ts]) => ({ key, times: ts.length, days: Math.round(days(ts)) }));
 }
 
@@ -271,9 +296,12 @@ function selftest() {
   assert.deepStrictEqual(cited, ['a/build.py', 'b/NEXT.md', 'win-cursor/art/'], `골라낸 것: ${cited}`);
 
   const tracked = ['win-cursor/build.py', 'win-cursor/art/amber/arrow.txt', 'README.md'];
-  const dead = deadPaths(path.join(__dirname, 'no-such-dir'), tracked,
-    ['win-cursor/build.py', 'win-cursor/art/', 'win-cursor/gone.py', 'docs/']);
-  assert.deepStrictEqual(dead, ['win-cursor/gone.py', 'docs/'], `죽은 것: ${dead}`);
+  const dead = deadPaths(path.join(__dirname, 'no-such-dir'), tracked, [
+    'win-cursor/build.py', 'win-cursor/art/', 'win-cursor/gone.py', 'docs/', // 그대로 / 지워짐 / 옛 최상위 폴더
+    'art/amber/', 'art/gone.txt',                                            // 하위 폴더 기준 상대 경로
+    'win-cursor/dist/', 'Ruminem/rules', '.git/index.lock',                  // 무시됨 / 이 저장소 얘기가 아님
+  ], { ignored: new Set(['win-cursor/dist/']), pastTop: new Set(['win-cursor', 'docs']) });
+  assert.deepStrictEqual(dead, ['win-cursor/gone.py', 'docs/', 'art/gone.txt'], `죽은 것: ${dead}`);
 
   const one = { dead: { a: ['x/y.py'] }, missing: [] };
   assert.ok(sameFindings(one, { dead: { a: ['x/y.py'] }, missing: [] }), '같은 결과를 또 적으면 안 된다');
@@ -288,6 +316,7 @@ function selftest() {
   ];
   assert.deepStrictEqual(stubborn(log), [{ key: 'a: x/old.py', times: 3, days: 19 }], JSON.stringify(stubborn(log)));
   assert.deepStrictEqual(stubborn(log.slice(0, 2)), [], '기록 2번뿐이면 아직 이르다');
+  assert.deepStrictEqual(stubborn([...log, { at: day(30), dead: {} }]), [], '고쳐진 지적은 오래 버텼어도 안 센다');
   console.log('selftest 통과');
 }
 
